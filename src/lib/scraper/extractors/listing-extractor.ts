@@ -58,8 +58,8 @@ export class ListingExtractor {
     return data;
   }
 
-  extractFromSearchResult(element: cheerio.Cheerio<cheerio.Element>): RawListingData {
-    const $ = cheerio.load(element);
+  extractFromSearchResult(element: any): RawListingData {
+    const $ = cheerio.load(element.html() || '');
     const data: RawListingData = {};
 
     try {

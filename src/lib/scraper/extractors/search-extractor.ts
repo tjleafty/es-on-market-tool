@@ -114,8 +114,8 @@ export class SearchExtractor {
     return listings;
   }
 
-  private extractDataFromContainer(container: cheerio.Cheerio<cheerio.Element>): Partial<RawListingData> {
-    const $ = cheerio.load(container);
+  private extractDataFromContainer(container: any): Partial<RawListingData> {
+    const $ = cheerio.load(container.html() || '');
     const data: Partial<RawListingData> = {};
 
     // Extract price information

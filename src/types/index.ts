@@ -7,6 +7,7 @@ export interface BusinessListing {
   cashFlow?: number;
   location: string;
   state: string;
+  city?: string;
   industry: string;
   description: string;
   listedDate: Date;
@@ -14,7 +15,14 @@ export interface BusinessListing {
   reasonForSelling?: string;
   employees?: number;
   established?: number;
+  features: string[];
   imageUrls: string[];
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  brokerName?: string;
+  brokerCompany?: string;
+  listingUrl?: string;
 }
 
 export interface ScrapeFilters {

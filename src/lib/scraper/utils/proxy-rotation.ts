@@ -35,7 +35,6 @@ export class ProxyRotator {
 
   constructor(proxyPool: ProxyPool) {
     this.proxyPool = {
-      rotationStrategy: 'round-robin',
       healthCheckUrl: 'https://httpbin.org/ip',
       maxFailures: 5,
       cooldownMs: 300000, // 5 minutes
