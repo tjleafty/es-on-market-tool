@@ -1,0 +1,65 @@
+{
+  "buildCommand": "npm run build",
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/export/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/jobs/route.ts": {
+      "maxDuration": 180
+    },
+    "src/app/api/monitoring/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "NODE_ENV": "production",
+    "VERCEL_ENV": "production"
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-API-Key, X-API-Secret, X-Client-ID, Content-Type, Authorization"
+        }
+      ]
+    },
+    {
+      "source": "/api/realtime",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "Connection",
+          "value": "keep-alive"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/docs",
+      "destination": "/api/docs"
+    },
+    {
+      "source": "/health",
+      "destination": "/api/monitoring/system"
+    }
+  ],
+  "regions": ["iad1"],
+  "framework": "nextjs"
+}
