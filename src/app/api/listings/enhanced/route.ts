@@ -447,15 +447,15 @@ async function getFacetedData(where: any): Promise<any> {
   ]);
 
   return {
-    industries: industryFacets.map(f => ({
+    industries: industryFacets.map((f: any) => ({
       value: f.industry,
       count: f._count.industry,
     })),
-    states: stateFacets.map(f => ({
+    states: stateFacets.map((f: any) => ({
       value: f.state,
       count: f._count.state,
     })),
-    cities: cityFacets.map(f => ({
+    cities: cityFacets.map((f: any) => ({
       value: f.city || 'Unknown',
       count: f._count.city,
     })),
