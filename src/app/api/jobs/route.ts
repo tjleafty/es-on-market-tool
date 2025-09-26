@@ -215,7 +215,7 @@ async function getJobsSummary() {
       statusCounts: statusSummary,
       recentActivity,
       queue: queueStats,
-      totalJobs: statusCounts.reduce((sum, item) => sum + item._count.id, 0),
+      totalJobs: statusCounts.reduce((sum: number, item: any) => sum + item._count.id, 0),
     };
   } catch (error) {
     console.error('Error getting jobs summary:', error);
