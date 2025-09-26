@@ -561,7 +561,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Invalid documentation query',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 

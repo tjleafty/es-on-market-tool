@@ -52,7 +52,8 @@ model BusinessListing {
   @@index([cashFlow])
   @@index([listedDate])
   @@index([established])
-  @@fulltext([title, description])
+  @@index([title])
+  @@index([description])
   @@map("business_listings")
 }
 

@@ -214,7 +214,7 @@ export class SSEManager extends EventEmitter {
     this.broadcastToTopic('system', message);
   }
 
-  private sendToClient(clientId: string, message: SSEMessage): void {
+  public sendToClient(clientId: string, message: SSEMessage): void {
     const client = this.clients.get(clientId);
     if (!client) return;
 

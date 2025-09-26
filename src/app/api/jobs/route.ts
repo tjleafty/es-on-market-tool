@@ -1,109 +1,71 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/database';
-import { scrapeQueue } from '@/lib/queue/scrape-queue';
+import { jobQueue } from '@/lib/jobs/database-queue';
 import { FilterValidator } from '@/lib/scraper/filters/filter-validator';
-import { Scraper } from '@/lib/scraper/core/scraper';
-import { ScrapeFilters } from '@/types';
+import { withAuth } from '@/lib/auth/middleware';
+import { PERMISSIONS } from '@/lib/auth/api-auth';
 
 const CreateJobSchema = z.object({
-  name: z.string().optional(),
-  description: z.string().optional(),
-  filters: z.record(z.any()),
-  priority: z.number().min(1).max(10).default(5),
-  config: z.object({
-    maxPages: z.number().min(1).max(100).optional(),
-    maxResults: z.number().min(1).max(10000).optional(),
-    detailScraping: z.boolean().default(false),
-    webhookUrl: z.string().url().optional(),
-  }).optional(),
-  scheduledFor: z.string().datetime().optional(),
-  tags: z.array(z.string()).optional(),
+  filters: z.record(z.string(), z.any()),
+  priority: z.enum(['LOW', 'NORMAL', 'HIGH']).default('NORMAL'),
+  maxListings: z.number().min(1).max(10000).default(1000),
+  enableWebhooks: z.boolean().default(false),
 });
 
 const JobsQuerySchema = z.object({
   page: z.string().transform(val => parseInt(val) || 1),
   limit: z.string().transform(val => Math.min(parseInt(val) || 20, 100)),
   status: z.enum(['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED']).optional(),
-  sortBy: z.enum(['createdAt', 'startedAt', 'completedAt', 'resultCount']).default('createdAt'),
+  sortBy: z.enum(['createdAt', 'startedAt', 'completedAt', 'listingsFound']).default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
   search: z.string().optional(),
-  tags: z.string().optional(),
 });
 
-export async function POST(request: NextRequest) {
+// POST /api/jobs - Create new scraping job
+export const POST = withAuth(async (request: NextRequest, authContext) => {
+  if (!authContext) {
+    return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+  }
+
+  if (!authContext.permissions.has(PERMISSIONS.JOBS_CREATE)) {
+    return NextResponse.json({ success: false, error: 'Insufficient permissions' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const validatedData = CreateJobSchema.parse(body);
 
-    // Validate and sanitize filters
-    const validatedFilters = FilterValidator.validate(validatedData.filters);
-    const validation = FilterValidator.validateForScraping(validatedFilters);
+    console.log(`🚀 Creating new scrape job with filters:`, validatedData.filters);
 
-    if (!validation.isValid) {
-      return NextResponse.json({
-        success: false,
-        error: 'Filter validation failed',
-        details: validation.errors,
-        warnings: validation.warnings,
-      }, { status: 400 });
-    }
+    // Validate filters
+    const validatedFilters = FilterValidator.validatePartial(validatedData.filters);
 
-    // Get time estimate for the job
-    const scraper = new Scraper();
-    const estimate = await scraper.estimateScrapeTime({ filters: validatedFilters });
-
-    // Create job in database
-    const scrapeJob = await prisma.scrapeJob.create({
-      data: {
-        filters: validatedFilters,
-        status: validatedData.scheduledFor ? 'PENDING' : 'PENDING',
-        // Store additional metadata
-      },
+    // Add job to queue (this will create the database record)
+    const jobId = await jobQueue.addJob(validatedFilters, {
+      priority: validatedData.priority,
+      maxListings: validatedData.maxListings,
+      enableWebhooks: validatedData.enableWebhooks,
     });
 
-    // Add to queue if not scheduled
-    if (!validatedData.scheduledFor) {
-      const jobOptions = {
-        priority: validatedData.priority,
-        jobId: scrapeJob.id,
-        delay: 0,
-        attempts: 3,
-        backoff: {
-          type: 'exponential' as const,
-          delay: 5000,
-        },
-      };
-
-      await scrapeQueue.add('scrape-listings', {
-        id: scrapeJob.id,
-        filters: validatedFilters,
-        priority: validatedData.priority,
-        config: validatedData.config,
-        webhookUrl: validatedData.config?.webhookUrl,
-      }, jobOptions);
-    }
+    // Get the created job
+    const job = await prisma.scrapeJob.findUnique({
+      where: { id: jobId },
+    });
 
     return NextResponse.json({
       success: true,
-      job: {
-        id: scrapeJob.id,
-        status: scrapeJob.status,
-        filters: scrapeJob.filters,
-        createdAt: scrapeJob.createdAt,
-        estimate: {
-          estimatedPages: estimate.estimatedPages,
-          estimatedResults: estimate.estimatedResults,
-          estimatedDuration: estimate.estimatedDuration,
-        },
-        validation: {
-          warnings: validation.warnings,
-        },
+      data: {
+        id: job!.id,
+        status: job!.status,
+        filters: job!.filters,
+        priority: job!.priority,
+        maxListings: job!.maxListings,
+        progress: job!.progress,
+        createdAt: job!.createdAt,
       },
-      message: validatedData.scheduledFor
-        ? 'Job scheduled successfully'
-        : 'Job created and queued successfully',
-    });
+      message: 'Job created and queued successfully',
+    }, { status: 201 });
 
   } catch (error) {
     console.error('Error creating scrape job:', error);
@@ -112,7 +74,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 
@@ -122,13 +84,25 @@ export async function POST(request: NextRequest) {
       message: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
   }
-}
+}, {
+  required: true,
+  permissions: [PERMISSIONS.JOBS_CREATE],
+});
 
-export async function GET(request: NextRequest) {
+// GET /api/jobs - List scraping jobs
+export const GET = withAuth(async (request: NextRequest, authContext) => {
+  if (!authContext) {
+    return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+  }
+
+  if (!authContext.permissions.has(PERMISSIONS.JOBS_READ)) {
+    return NextResponse.json({ success: false, error: 'Insufficient permissions' }, { status: 403 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const queryParams = Object.fromEntries(searchParams.entries());
-    const { page, limit, status, sortBy, sortOrder, search, tags } = JobsQuerySchema.parse(queryParams);
+    const { page, limit, status, sortBy, sortOrder, search } = JobsQuerySchema.parse(queryParams);
 
     // Build where clause
     const where: any = {};
@@ -138,18 +112,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      // Search in job metadata or filters
+      // Simple search in filters JSON
       where.OR = [
         {
           filters: {
-            path: ['location', 'states'],
-            array_contains: search,
-          },
-        },
-        {
-          filters: {
-            path: ['industry'],
-            array_contains: search,
+            string_contains: search,
           },
         },
       ];
@@ -166,7 +133,12 @@ export async function GET(request: NextRequest) {
           id: true,
           filters: true,
           status: true,
-          resultCount: true,
+          progress: true,
+          listingsFound: true,
+          duration: true,
+          priority: true,
+          maxListings: true,
+          enableWebhooks: true,
           error: true,
           startedAt: true,
           completedAt: true,
@@ -177,41 +149,12 @@ export async function GET(request: NextRequest) {
       prisma.scrapeJob.count({ where }),
     ]);
 
-    // Get queue statistics for active jobs
-    const activeJobIds = jobs
-      .filter(job => job.status === 'PENDING' || job.status === 'PROCESSING')
-      .map(job => job.id);
-
-    const queueStats = await Promise.all(
-      activeJobIds.map(async (jobId) => {
-        const queueJob = await scrapeQueue.getJob(jobId);
-        return {
-          jobId,
-          queuePosition: queueJob?.opts.delay || 0,
-          progress: queueJob?.progress() || 0,
-          attempts: queueJob?.attemptsMade || 0,
-        };
-      })
-    );
-
-    // Enhance jobs with queue information
-    const enhancedJobs = jobs.map(job => {
-      const queueInfo = queueStats.find(qs => qs.jobId === job.id);
-      return {
-        ...job,
-        queue: queueInfo || null,
-        duration: job.startedAt && job.completedAt
-          ? job.completedAt.getTime() - job.startedAt.getTime()
-          : null,
-      };
-    });
-
     const totalPages = Math.ceil(totalCount / limit);
 
     return NextResponse.json({
       success: true,
       data: {
-        jobs: enhancedJobs,
+        jobs,
         pagination: {
           page,
           limit,
@@ -231,7 +174,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Invalid query parameters',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 
@@ -241,39 +184,46 @@ export async function GET(request: NextRequest) {
       message: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
   }
-}
+}, {
+  required: true,
+  permissions: [PERMISSIONS.JOBS_READ],
+});
 
 async function getJobsSummary() {
-  const [statusCounts, recentActivity] = await Promise.all([
-    prisma.scrapeJob.groupBy({
-      by: ['status'],
-      _count: {
-        status: true,
-      },
-    }),
-    prisma.scrapeJob.aggregate({
-      where: {
-        createdAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
+  try {
+    const [statusCounts, recentActivity, queueStats] = await Promise.all([
+      prisma.scrapeJob.groupBy({
+        by: ['status'],
+        _count: { id: true },
+      }),
+      prisma.scrapeJob.count({
+        where: {
+          createdAt: {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
+          },
         },
-      },
-      _count: true,
-      _sum: {
-        resultCount: true,
-      },
-    }),
-  ]);
+      }),
+      jobQueue.getQueueStats(),
+    ]);
 
-  const statusSummary = statusCounts.reduce((acc, item) => {
-    acc[item.status] = item._count.status;
-    return acc;
-  }, {} as Record<string, number>);
+    const statusSummary = statusCounts.reduce((acc, item) => {
+      acc[item.status.toLowerCase()] = item._count.id;
+      return acc;
+    }, {} as Record<string, number>);
 
-  return {
-    statusCounts: statusSummary,
-    last24Hours: {
-      totalJobs: recentActivity._count,
-      totalListings: recentActivity._sum.resultCount || 0,
-    },
-  };
+    return {
+      statusCounts: statusSummary,
+      recentActivity,
+      queue: queueStats,
+      totalJobs: statusCounts.reduce((sum, item) => sum + item._count.id, 0),
+    };
+  } catch (error) {
+    console.error('Error getting jobs summary:', error);
+    return {
+      statusCounts: {},
+      recentActivity: 0,
+      queue: { pending: 0, processing: 0, completed: 0, failed: 0, cancelled: 0, currentJobs: [] },
+      totalJobs: 0,
+    };
+  }
 }

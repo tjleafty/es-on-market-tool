@@ -132,7 +132,7 @@ export class FilterManager {
     return filterSets.map(set => ({
       id: set.id,
       name: set.name,
-      description: set.description,
+      description: set.description || undefined,
       filters: set.filters as ScrapeFilters,
       usageCount: set.usageCount,
       createdAt: set.createdAt,

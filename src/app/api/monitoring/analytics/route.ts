@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Invalid analytics query',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 
@@ -140,16 +140,17 @@ function getDateRange(query: any): { dateFrom: Date; dateTo: Date } {
   }
 
   const now = new Date();
-  const periodHours = {
+  const periodHours: Record<string, number> = {
     '1h': 1,
     '6h': 6,
     '24h': 24,
     '7d': 168,
     '30d': 720,
-  }[query.period] || 24;
+  };
+  const selectedHours = periodHours[query.period] || 24;
 
   return {
-    dateFrom: new Date(now.getTime() - periodHours * 60 * 60 * 1000),
+    dateFrom: new Date(now.getTime() - selectedHours * 60 * 60 * 1000),
     dateTo: now,
   };
 }

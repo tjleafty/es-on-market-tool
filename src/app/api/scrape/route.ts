@@ -5,7 +5,7 @@ import { scrapeQueue } from '@/lib/queue/scrape-queue';
 import { FilterValidator } from '@/lib/scraper/filters/filter-validator';
 
 const ScrapeRequestSchema = z.object({
-  filters: z.record(z.any()).default({}),
+  filters: z.record(z.string(), z.any()).default({}),
   priority: z.number().min(1).max(10).default(5),
 });
 
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     const scrapeJob = await prisma.scrapeJob.create({
       data: {
-        filters: sanitizedFilters,
+        filters: sanitizedFilters as any,
         status: 'PENDING',
       },
     });
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 

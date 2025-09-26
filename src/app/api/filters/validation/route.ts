@@ -3,7 +3,7 @@ import { FilterValidator } from '@/lib/scraper/filters/filter-validator';
 import { z } from 'zod';
 
 const ValidationRequestSchema = z.object({
-  filters: z.record(z.any()),
+  filters: z.record(z.string(), z.any()),
 });
 
 export async function POST(request: NextRequest) {
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Invalid request format',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 

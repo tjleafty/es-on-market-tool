@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/database';
-import { wsManager } from '@/lib/websocket/websocket-manager';
+import { sseManager } from '@/lib/realtime/sse-manager';
 import os from 'os';
 
 interface SystemHealth {
@@ -185,7 +185,7 @@ async function checkDatabaseHealth(): Promise<ServiceStatus> {
 
 async function checkWebSocketHealth(): Promise<ServiceStatus> {
   try {
-    const stats = wsManager.getStats();
+    const stats = sseManager.getStats();
 
     return {
       status: 'up',

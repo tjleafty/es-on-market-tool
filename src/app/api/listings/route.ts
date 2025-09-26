@@ -6,7 +6,7 @@ import { FilterValidator } from '@/lib/scraper/filters/filter-validator';
 import { filterManager } from '@/lib/filters/filter-manager';
 
 const ListingsRequestSchema = z.object({
-  filters: z.record(z.any()).default({}),
+  filters: z.record(z.string(), z.any()).default({}),
   search: z.string().optional(),
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(100).default(20),
@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Invalid request parameters',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 

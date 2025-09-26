@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/database';
-import { scrapeQueue } from '@/lib/queue/scrape-queue';
+import { jobQueue } from '@/lib/jobs/database-queue';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -27,13 +27,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Get job from database
     const scrapeJob = await prisma.scrapeJob.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: {
-            // Would count related records if we had them
-          },
-        },
-      },
     });
 
     if (!scrapeJob) {
@@ -43,27 +36,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }, { status: 404 });
     }
 
-    // Get queue job information
-    let queueInfo = null;
-    try {
-      const queueJob = await scrapeQueue.getJob(id);
-      if (queueJob) {
-        queueInfo = {
-          id: queueJob.id,
-          progress: queueJob.progress(),
-          attempts: queueJob.attemptsMade,
-          maxAttempts: queueJob.opts.attempts,
-          delay: queueJob.opts.delay,
-          priority: queueJob.opts.priority,
-          processedOn: queueJob.processedOn,
-          finishedOn: queueJob.finishedOn,
-          failedReason: queueJob.failedReason,
-          stacktrace: queueJob.stacktrace,
-        };
-      }
-    } catch (queueError) {
-      console.warn('Failed to get queue job info:', queueError);
-    }
+    // Database queue doesn't have additional queue-specific information
+    // All relevant data is stored in the database record
 
     // Calculate duration if applicable
     const duration = scrapeJob.startedAt && scrapeJob.completedAt
@@ -72,9 +46,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Get related listings count (if job is completed)
     let relatedListingsCount = 0;
-    if (scrapeJob.status === 'COMPLETED' && scrapeJob.resultCount) {
+    if (scrapeJob.status === 'COMPLETED' && scrapeJob.listingsFound) {
       // In a real implementation, you might want to query listings created by this job
-      relatedListingsCount = scrapeJob.resultCount;
+      relatedListingsCount = scrapeJob.listingsFound;
     }
 
     return NextResponse.json({
@@ -82,9 +56,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       job: {
         ...scrapeJob,
         duration,
-        queue: queueInfo,
         relatedListings: relatedListingsCount,
-        timeline: generateJobTimeline(scrapeJob, queueInfo),
+        timeline: generateJobTimeline(scrapeJob),
       },
     });
 
@@ -189,39 +162,43 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Handle queue actions
+    // Handle database queue actions
     if (queueAction) {
       try {
-        const queueJob = await scrapeQueue.getJob(id);
-
         switch (queueAction) {
           case 'remove':
-            if (queueJob) {
-              await queueJob.remove();
-            }
+          case 'cancel':
+            await jobQueue.cancelJob(id);
             break;
 
           case 'pause':
-            if (queueJob) {
-              await queueJob.pause();
-            }
+            // Database queue doesn't support pause - cancel the job instead
+            await jobQueue.cancelJob(id);
             break;
 
           case 'resume':
-            if (queueJob) {
-              await queueJob.resume();
+            // Resume by setting back to pending (only if currently cancelled)
+            const currentJob = await prisma.scrapeJob.findUnique({ where: { id } });
+            if (currentJob?.status === 'CANCELLED') {
+              await prisma.scrapeJob.update({
+                where: { id },
+                data: { status: 'PENDING', updatedAt: new Date() },
+              });
             }
             break;
 
           case 'retry':
-            // Re-add job to queue
-            await scrapeQueue.add('scrape-listings', {
-              id: currentJob.id,
-              filters: currentJob.filters,
-              priority: priority || 5,
-            }, {
-              priority: priority || 5,
-              jobId: currentJob.id,
+            // Reset job to pending for retry
+            await prisma.scrapeJob.update({
+              where: { id },
+              data: {
+                status: 'PENDING',
+                progress: 0,
+                error: null,
+                startedAt: null,
+                completedAt: null,
+                updatedAt: new Date(),
+              },
             });
             break;
         }
@@ -245,7 +222,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 
@@ -288,15 +265,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }, { status: 400 });
     }
 
-    // Remove from queue if exists
-    try {
-      const queueJob = await scrapeQueue.getJob(id);
-      if (queueJob) {
-        await queueJob.remove();
-      }
-    } catch (queueError) {
-      console.warn('Failed to remove job from queue:', queueError);
-    }
+    // Database queue - job will be removed with database deletion
 
     // Delete from database
     await prisma.scrapeJob.delete({
@@ -319,7 +288,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-function generateJobTimeline(scrapeJob: any, queueInfo: any) {
+function generateJobTimeline(scrapeJob: any) {
   const timeline = [];
 
   timeline.push({
@@ -333,14 +302,6 @@ function generateJobTimeline(scrapeJob: any, queueInfo: any) {
       event: 'started',
       timestamp: scrapeJob.startedAt,
       description: 'Job processing started',
-    });
-  }
-
-  if (queueInfo?.attempts > 1) {
-    timeline.push({
-      event: 'retry',
-      timestamp: null, // Would need to track retry timestamps
-      description: `Job retried (attempt ${queueInfo.attempts}/${queueInfo.maxAttempts})`,
     });
   }
 

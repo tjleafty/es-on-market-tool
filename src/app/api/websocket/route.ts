@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { wsManager } from '@/lib/websocket/websocket-manager';
+import { sseManager } from '@/lib/realtime/sse-manager';
 
 export async function GET(request: NextRequest) {
   try {
-    const stats = wsManager.getStats();
-    const clients = wsManager.getAllClients().map(client => ({
+    const stats = sseManager.getStats();
+    const clients = sseManager.getAllClients().map(client => ({
       id: client.id,
       subscriptions: Array.from(client.subscriptions),
       connectedAt: client.metadata.connectedAt,
       lastPing: client.lastPing,
       userAgent: client.metadata.userAgent,
-      ipAddress: client.metadata.ipAddress,
     }));
 
     return NextResponse.json({
@@ -38,10 +37,9 @@ export async function POST(request: NextRequest) {
 
     switch (type) {
       case 'broadcast':
-        wsManager.broadcast({
-          type: 'broadcast',
+        sseManager.broadcast({
+          event: 'broadcast',
           data,
-          timestamp: Date.now(),
         });
         break;
 
@@ -53,10 +51,9 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
 
-        wsManager.broadcastToTopic(topic, {
-          type: 'topicBroadcast',
+        sseManager.broadcastToTopic(topic, {
+          event: 'topicBroadcast',
           data,
-          timestamp: Date.now(),
         });
         break;
 
@@ -68,11 +65,11 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
 
-        wsManager.sendJobUpdate(jobId, data);
+        sseManager.sendJobUpdate(jobId, data);
         break;
 
       case 'systemStatus':
-        wsManager.sendSystemStatus(data);
+        sseManager.sendSystemStatus(data);
         break;
 
       default:

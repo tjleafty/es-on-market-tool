@@ -40,46 +40,40 @@ export class QueryBuilder {
 
     // Price range filters
     if (filters.price) {
-      const priceCondition: Prisma.BusinessListingWhereInput = {};
+      const priceFilters: any = {};
 
       if (filters.price.min !== undefined) {
-        priceCondition.askingPrice = {
-          ...priceCondition.askingPrice,
-          gte: filters.price.min,
-        };
+        priceFilters.gte = filters.price.min;
       }
 
       if (filters.price.max !== undefined) {
-        priceCondition.askingPrice = {
-          ...priceCondition.askingPrice,
-          lte: filters.price.max,
-        };
+        priceFilters.lte = filters.price.max;
       }
 
-      if (Object.keys(priceCondition).length > 0) {
+      if (Object.keys(priceFilters).length > 0) {
+        const priceCondition: Prisma.BusinessListingWhereInput = {
+          askingPrice: priceFilters
+        };
         conditions.push(priceCondition);
       }
     }
 
     // Revenue range filters
     if (filters.revenue) {
-      const revenueCondition: Prisma.BusinessListingWhereInput = {};
+      const revenueFilters: any = {};
 
       if (filters.revenue.min !== undefined) {
-        revenueCondition.revenue = {
-          ...revenueCondition.revenue,
-          gte: filters.revenue.min,
-        };
+        revenueFilters.gte = filters.revenue.min;
       }
 
       if (filters.revenue.max !== undefined) {
-        revenueCondition.revenue = {
-          ...revenueCondition.revenue,
-          lte: filters.revenue.max,
-        };
+        revenueFilters.lte = filters.revenue.max;
       }
 
-      if (Object.keys(revenueCondition).length > 0) {
+      if (Object.keys(revenueFilters).length > 0) {
+        const revenueCondition: Prisma.BusinessListingWhereInput = {
+          revenue: revenueFilters
+        };
         conditions.push(revenueCondition);
       }
     }
@@ -90,14 +84,14 @@ export class QueryBuilder {
 
       if (filters.cashFlow.min !== undefined) {
         cashFlowCondition.cashFlow = {
-          ...cashFlowCondition.cashFlow,
+          ...(cashFlowCondition.cashFlow || {}),
           gte: filters.cashFlow.min,
         };
       }
 
       if (filters.cashFlow.max !== undefined) {
         cashFlowCondition.cashFlow = {
-          ...cashFlowCondition.cashFlow,
+          ...(cashFlowCondition.cashFlow || {}),
           lte: filters.cashFlow.max,
         };
       }
@@ -122,14 +116,14 @@ export class QueryBuilder {
 
       if (filters.listingDate.from) {
         dateCondition.listedDate = {
-          ...dateCondition.listedDate,
+          ...(dateCondition.listedDate || {}),
           gte: filters.listingDate.from,
         };
       }
 
       if (filters.listingDate.to) {
         dateCondition.listedDate = {
-          ...dateCondition.listedDate,
+          ...(dateCondition.listedDate || {}),
           lte: filters.listingDate.to,
         };
       }
@@ -152,14 +146,14 @@ export class QueryBuilder {
 
       if (filters.established.min !== undefined) {
         establishedCondition.established = {
-          ...establishedCondition.established,
+          ...(establishedCondition.established || {}),
           gte: filters.established.min,
         };
       }
 
       if (filters.established.max !== undefined) {
         establishedCondition.established = {
-          ...establishedCondition.established,
+          ...(establishedCondition.established || {}),
           lte: filters.established.max,
         };
       }

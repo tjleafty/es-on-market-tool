@@ -45,7 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         id: scrapeJob.id,
         status: scrapeJob.status,
         filters: scrapeJob.filters,
-        resultCount: scrapeJob.resultCount,
+        resultCount: scrapeJob.listingsFound,
         error: scrapeJob.error,
         startedAt: scrapeJob.startedAt,
         completedAt: scrapeJob.completedAt,

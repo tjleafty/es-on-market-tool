@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/database';
-import { wsManager } from '@/lib/websocket/websocket-manager';
+import { sseManager } from '@/lib/realtime/sse-manager';
 
 interface DashboardData {
   overview: {
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Invalid dashboard query',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 
@@ -178,7 +178,7 @@ async function generateOverview(todayStart: Date) {
     .reduce((sum, j) => sum + j._count.id, 0);
 
   // Determine system status based on metrics
-  const systemStatus = failedJobsToday > completedJobsToday ? 'degraded' :
+  const systemStatus: 'healthy' | 'degraded' | 'unhealthy' = failedJobsToday > completedJobsToday ? 'degraded' :
                       activeJobs > 10 ? 'degraded' : 'healthy';
 
   return {
@@ -192,7 +192,7 @@ async function generateOverview(todayStart: Date) {
 }
 
 async function generateRealTimeMetrics() {
-  const wsStats = wsManager.getStats();
+  const sseStats = sseManager.getStats();
   const memUsage = process.memoryUsage();
   const totalMem = memUsage.heapTotal;
   const usedMem = memUsage.heapUsed;
@@ -207,8 +207,8 @@ async function generateRealTimeMetrics() {
   });
 
   return {
-    connectedClients: wsStats.connectedClients,
-    activeTopics: Object.keys(wsStats.topicBreakdown).length,
+    connectedClients: sseStats.connectedClients,
+    activeTopics: Object.keys(sseStats.topicBreakdown).length,
     memoryUsage: Math.round((usedMem / totalMem) * 100),
     cpuUsage: Math.round(Math.random() * 30 + 20), // Mock CPU usage
     requestsPerMinute: recentActivity * 60, // Extrapolate from last minute
@@ -301,14 +301,14 @@ async function generateAlerts(): Promise<Alert[]> {
     });
   }
 
-  // Check WebSocket connections
-  const wsStats = wsManager.getStats();
-  if (wsStats.connectedClients > 100) {
+  // Check SSE connections
+  const sseStats = sseManager.getStats();
+  if (sseStats.connectedClients > 100) {
     alerts.push({
       id: `alert_connections_${Date.now()}`,
       type: 'info',
-      title: 'High WebSocket Activity',
-      message: `${wsStats.connectedClients} clients connected`,
+      title: 'High Real-time Activity',
+      message: `${sseStats.connectedClients} clients connected`,
       timestamp: new Date().toISOString(),
       acknowledged: false,
     });

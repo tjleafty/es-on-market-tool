@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/database';
-import { scrapeQueue } from '@/lib/queue/scrape-queue';
+import { jobQueue } from '@/lib/jobs/database-queue';
 import { FilterValidator } from '@/lib/scraper/filters/filter-validator';
 import { ConcurrentScraper } from '@/lib/scraper/core/concurrent-scraper';
 import { ScrapeFilters } from '@/types';
@@ -11,7 +11,7 @@ const BatchJobSchema = z.object({
   description: z.string().optional(),
   jobs: z.array(z.object({
     name: z.string().optional(),
-    filters: z.record(z.any()),
+    filters: z.record(z.string(), z.any()),
     priority: z.number().min(1).max(10).default(5),
     config: z.object({
       maxPages: z.number().min(1).max(100).optional(),
@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
     const validatedData = BatchJobSchema.parse(body);
 
     // Validate all job filters
-    const validatedJobs = [];
-    const validationErrors = [];
+    const validatedJobs: any[] = [];
+    const validationErrors: any[] = [];
 
     for (let i = 0; i < validatedData.jobs.length; i++) {
       const job = validatedData.jobs[i];
@@ -109,39 +109,10 @@ export async function POST(request: NextRequest) {
       parallelEstimatedMinutes = estimate.parallelEstimatedMinutes;
     }
 
-    // Queue jobs based on concurrency settings
-    if (validatedData.concurrency?.enabled) {
-      // Queue as concurrent batch
-      await scrapeQueue.add('concurrent-batch', {
-        batchId,
-        jobs: createdJobs.map((job, index) => ({
-          id: job.id,
-          filters: validatedJobs[index].filters,
-          config: validatedJobs[index].config,
-        })),
-        concurrency: validatedData.concurrency,
-        webhookUrl: validatedData.webhookUrl,
-      }, {
-        priority: Math.max(...validatedJobs.map(j => j.priority || 5)),
-        jobId: batchId,
-      });
-    } else {
-      // Queue individual jobs
-      await Promise.all(
-        createdJobs.map(async (job, index) => {
-          const jobData = validatedJobs[index];
-          await scrapeQueue.add('scrape-listings', {
-            id: job.id,
-            filters: jobData.filters,
-            priority: jobData.priority || 5,
-            config: jobData.config,
-          }, {
-            priority: jobData.priority || 5,
-            jobId: job.id,
-          });
-        })
-      );
-    }
+    // Database queue doesn't support concurrent batches - queue individual jobs
+    // All jobs will be processed according to their individual priorities
+    // Jobs are already created in database with PENDING status
+    // The database queue will automatically process them
 
     return NextResponse.json({
       success: true,
@@ -173,7 +144,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 
@@ -262,26 +233,25 @@ export async function PATCH(request: NextRequest) {
           });
         }
 
-        // Handle queue actions
+        // Handle database queue actions
         try {
-          const queueJob = await scrapeQueue.getJob(job.id);
-
           switch (action) {
             case 'cancel':
-              if (queueJob) {
-                await queueJob.remove();
-              }
+              await jobQueue.cancelJob(job.id);
               break;
 
             case 'pause':
-              if (queueJob && job.status === 'PENDING') {
-                await queueJob.pause();
-              }
+              // Database queue doesn't support pause - cancel instead
+              await jobQueue.cancelJob(job.id);
               break;
 
             case 'resume':
-              if (queueJob && job.status === 'PENDING') {
-                await queueJob.resume();
+              // Resume by resetting to pending if cancelled
+              if (job.status === 'CANCELLED') {
+                await prisma.scrapeJob.update({
+                  where: { id: job.id },
+                  data: { status: 'PENDING', updatedAt: new Date() },
+                });
               }
               break;
           }
@@ -325,7 +295,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 

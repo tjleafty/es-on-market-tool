@@ -113,7 +113,7 @@ class ApiAuthService {
     }
 
     try {
-      const keyData = await this.validateApiKey(apiKey, apiSecret);
+      const keyData = await this.validateApiKey(apiKey, apiSecret || undefined);
       if (!keyData) {
         return null;
       }

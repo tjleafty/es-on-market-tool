@@ -4,11 +4,11 @@ import { prisma } from '@/lib/database';
 import { queryBuilder } from '@/lib/filters/query-builder';
 import { FilterValidator } from '@/lib/scraper/filters/filter-validator';
 import * as XLSX from 'xlsx';
-import { Transform } from 'json2csv';
+import { parse } from 'json2csv';
 
 const ExportRequestSchema = z.object({
   format: z.enum(['csv', 'excel', 'json', 'xml']),
-  filters: z.record(z.any()).default({}),
+  filters: z.record(z.string(), z.any()).default({}),
   search: z.string().optional(),
   fields: z.array(z.string()).optional(),
   limit: z.number().min(1).max(10000).default(1000), // Reduced for serverless
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Invalid export request',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 
@@ -341,8 +341,7 @@ function exportAsCSV(data: any[], filename: string, request: any): NextResponse 
       return flattened;
     });
 
-    const json2csvParser = new Transform({ fields });
-    const csv = json2csvParser.transform(flattenedData);
+    const csv = parse(flattenedData, { fields });
 
     const headers = new Headers();
     headers.set('Content-Type', 'text/csv');

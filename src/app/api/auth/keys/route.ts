@@ -8,7 +8,7 @@ const CreateKeySchema = z.object({
   tier: z.enum(['basic', 'premium', 'enterprise']).default('basic'),
   permissions: z.array(z.string()).optional(),
   expiresIn: z.number().min(1).max(365).optional(), // days
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 const UpdateKeySchema = z.object({
@@ -16,7 +16,7 @@ const UpdateKeySchema = z.object({
   enabled: z.boolean().optional(),
   permissions: z.array(z.string()).optional(),
   expiresIn: z.number().min(1).max(365).optional(), // days from now
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 // GET /api/auth/keys - List API keys (admin only)
@@ -121,7 +121,7 @@ export const POST = withAuth(async (request, authContext) => {
       return NextResponse.json({
         success: false,
         error: 'Invalid key creation request',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 
@@ -133,91 +133,5 @@ export const POST = withAuth(async (request, authContext) => {
   }
 });
 
-// PUT /api/auth/keys/[keyId] - Update API key
-export async function PUT(request: NextRequest, { params }: { params: { keyId: string } }) {
-  const authResult = await withAuth(async (req, authContext) => {
-    if (!authContext || !apiAuthService.hasPermission(authContext, PERMISSIONS.ADMIN_KEYS)) {
-      return NextResponse.json({
-        success: false,
-        error: 'Admin access required',
-      }, { status: 403 });
-    }
-
-    try {
-      const keyId = params.keyId;
-      const body = await request.json();
-      const updateData = UpdateKeySchema.parse(body);
-
-      console.log(`🔑 Updating API key: ${keyId}`);
-
-      // In production, update database record
-      const updatedKey = {
-        id: keyId,
-        ...updateData,
-        updatedAt: new Date().toISOString(),
-      };
-
-      return NextResponse.json({
-        success: true,
-        data: updatedKey,
-        message: 'API key updated successfully',
-      });
-
-    } catch (error) {
-      console.error('Failed to update API key:', error);
-
-      if (error instanceof z.ZodError) {
-        return NextResponse.json({
-          success: false,
-          error: 'Invalid key update request',
-          details: error.errors,
-        }, { status: 400 });
-      }
-
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to update API key',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      }, { status: 500 });
-    }
-  })(request);
-
-  return authResult;
-}
-
-// DELETE /api/auth/keys/[keyId] - Delete/disable API key
-export async function DELETE(request: NextRequest, { params }: { params: { keyId: string } }) {
-  const authResult = await withAuth(async (req, authContext) => {
-    if (!authContext || !apiAuthService.hasPermission(authContext, PERMISSIONS.ADMIN_KEYS)) {
-      return NextResponse.json({
-        success: false,
-        error: 'Admin access required',
-      }, { status: 403 });
-    }
-
-    try {
-      const keyId = params.keyId;
-
-      console.log(`🔑 Deleting API key: ${keyId}`);
-
-      // In production, soft delete or disable the key in database
-      // Never actually delete keys completely for audit trails
-
-      return NextResponse.json({
-        success: true,
-        message: 'API key deleted successfully',
-      });
-
-    } catch (error) {
-      console.error('Failed to delete API key:', error);
-
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to delete API key',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      }, { status: 500 });
-    }
-  })(request);
-
-  return authResult;
-}
+// Note: PUT and DELETE for specific keys would be in a [keyId]/route.ts file
+// For now, removed to fix build issues since this is the main keys route

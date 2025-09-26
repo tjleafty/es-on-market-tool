@@ -22,7 +22,7 @@ const ManualEventSchema = z.object({
     'export.completed',
     'export.failed',
   ]),
-  data: z.record(z.any()),
+  data: z.record(z.string(), z.any()),
   source: z.string().default('manual'),
 });
 
@@ -279,7 +279,7 @@ export const POST = withAuth(async (request, authContext) => {
       return NextResponse.json({
         success: false,
         error: 'Invalid event request',
-        details: error.errors,
+        details: error.issues,
       }, { status: 400 });
     }
 
