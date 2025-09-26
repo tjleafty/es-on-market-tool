@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/database';
-import { scrapeQueue } from '@/lib/queue/scrape-queue';
+import { jobQueue } from '@/lib/jobs/database-queue';
 import { FilterValidator } from '@/lib/scraper/filters/filter-validator';
 
 const ScrapeRequestSchema = z.object({
@@ -24,14 +24,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    await scrapeQueue.add('scrape-listings', {
-      id: scrapeJob.id,
-      filters: sanitizedFilters,
-      priority,
-    }, {
-      priority,
-      jobId: scrapeJob.id,
-    });
+    // Job is already created in database with PENDING status
+    // The database queue will automatically process it
 
     return NextResponse.json({
       success: true,

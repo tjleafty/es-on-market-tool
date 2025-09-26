@@ -140,13 +140,13 @@ export class ConcurrentScraper {
       jobResults.forEach((jobResult, index) => {
         if (jobResult.status === 'fulfilled') {
           const result = jobResult.value;
-          if (result.success) {
+          if (result && result.success) {
             results.push(result);
             progress.totalListings += result.listings.length;
-          } else {
+          } else if (result) {
             failed.push({
               index,
-              error: result.stats.errors.join(', ') || 'Unknown error',
+              error: result.stats?.errors?.join(', ') || 'Unknown error',
               filters: config.filters[index],
             });
           }

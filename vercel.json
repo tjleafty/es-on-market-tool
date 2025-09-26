@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "next build",
   "functions": {
     "src/app/api/**/*.ts": {
       "maxDuration": 60
@@ -13,10 +13,6 @@
     "src/app/api/monitoring/**/*.ts": {
       "maxDuration": 30
     }
-  },
-  "env": {
-    "NODE_ENV": "production",
-    "VERCEL_ENV": "production"
   },
   "headers": [
     {

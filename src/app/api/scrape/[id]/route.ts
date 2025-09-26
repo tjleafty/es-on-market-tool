@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { scrapeQueue } from '@/lib/queue/scrape-queue';
+import { jobQueue } from '@/lib/jobs/database-queue';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -28,16 +28,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }, { status: 404 });
     }
 
-    const queueJob = await scrapeQueue.getJob(id);
-    let progress: any = null;
-
-    if (queueJob) {
-      progress = {
-        current: queueJob.progress() || 0,
-        total: 100,
-        percentage: queueJob.progress() || 0,
-      };
-    }
+    // Database queue - progress is stored directly in the job record
+    const progress = {
+      current: scrapeJob.progress,
+      total: 100,
+      percentage: scrapeJob.progress,
+    };
 
     return NextResponse.json({
       success: true,
@@ -76,10 +72,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }, { status: 400 });
     }
 
-    const queueJob = await scrapeQueue.getJob(id);
-    if (queueJob && (queueJob.opts.attempts === 0 || queueJob.finishedOn === null)) {
-      await queueJob.remove();
-    }
+    // Database queue - job will be cancelled via database update
 
     await prisma.scrapeJob.update({
       where: { id },

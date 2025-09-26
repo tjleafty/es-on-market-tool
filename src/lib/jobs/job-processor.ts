@@ -47,11 +47,11 @@ export class JobProcessor {
       // Complete the job
       await jobQueue.completeJob(job.id, {
         success: true,
-        listingsFound: result.listingsScraped,
+        listingsFound: result.stats.listingsFound,
         duration,
         data: {
-          pagesProcessed: result.pagesProcessed,
-          errors: result.errors,
+          pagesProcessed: result.stats.pagesScraped,
+          errors: result.stats.errors,
         },
       });
 

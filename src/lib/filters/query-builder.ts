@@ -80,23 +80,20 @@ export class QueryBuilder {
 
     // Cash flow range filters
     if (filters.cashFlow) {
-      const cashFlowCondition: Prisma.BusinessListingWhereInput = {};
+      const cashFlowFilters: any = {};
 
       if (filters.cashFlow.min !== undefined) {
-        cashFlowCondition.cashFlow = {
-          ...(cashFlowCondition.cashFlow || {}),
-          gte: filters.cashFlow.min,
-        };
+        cashFlowFilters.gte = filters.cashFlow.min;
       }
 
       if (filters.cashFlow.max !== undefined) {
-        cashFlowCondition.cashFlow = {
-          ...(cashFlowCondition.cashFlow || {}),
-          lte: filters.cashFlow.max,
-        };
+        cashFlowFilters.lte = filters.cashFlow.max;
       }
 
-      if (Object.keys(cashFlowCondition).length > 0) {
+      if (Object.keys(cashFlowFilters).length > 0) {
+        const cashFlowCondition: Prisma.BusinessListingWhereInput = {
+          cashFlow: cashFlowFilters
+        };
         conditions.push(cashFlowCondition);
       }
     }
@@ -112,23 +109,20 @@ export class QueryBuilder {
 
     // Listing date filters
     if (filters.listingDate) {
-      const dateCondition: Prisma.BusinessListingWhereInput = {};
+      const dateFilters: any = {};
 
       if (filters.listingDate.from) {
-        dateCondition.listedDate = {
-          ...(dateCondition.listedDate || {}),
-          gte: filters.listingDate.from,
-        };
+        dateFilters.gte = filters.listingDate.from;
       }
 
       if (filters.listingDate.to) {
-        dateCondition.listedDate = {
-          ...(dateCondition.listedDate || {}),
-          lte: filters.listingDate.to,
-        };
+        dateFilters.lte = filters.listingDate.to;
       }
 
-      if (Object.keys(dateCondition).length > 0) {
+      if (Object.keys(dateFilters).length > 0) {
+        const dateCondition: Prisma.BusinessListingWhereInput = {
+          listedDate: dateFilters
+        };
         conditions.push(dateCondition);
       }
     }
@@ -142,23 +136,20 @@ export class QueryBuilder {
 
     // Established year filters
     if (filters.established) {
-      const establishedCondition: Prisma.BusinessListingWhereInput = {};
+      const establishedFilters: any = {};
 
       if (filters.established.min !== undefined) {
-        establishedCondition.established = {
-          ...(establishedCondition.established || {}),
-          gte: filters.established.min,
-        };
+        establishedFilters.gte = filters.established.min;
       }
 
       if (filters.established.max !== undefined) {
-        establishedCondition.established = {
-          ...(establishedCondition.established || {}),
-          lte: filters.established.max,
-        };
+        establishedFilters.lte = filters.established.max;
       }
 
-      if (Object.keys(establishedCondition).length > 0) {
+      if (Object.keys(establishedFilters).length > 0) {
+        const establishedCondition: Prisma.BusinessListingWhereInput = {
+          established: establishedFilters
+        };
         conditions.push(establishedCondition);
       }
     }
@@ -314,7 +305,7 @@ export class QueryBuilder {
     // Remove the filter for the field we're faceting on to get all possible values
     const facetWhere = this.removeFacetFilter(where, facetField);
 
-    let groupByField: keyof Prisma.BusinessListingGroupByArgs['by'];
+    let groupByField: string;
 
     switch (facetField) {
       case 'industry':

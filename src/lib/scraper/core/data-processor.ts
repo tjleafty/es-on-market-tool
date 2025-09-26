@@ -56,7 +56,7 @@ export class DataProcessor {
         this.stats.successful++;
 
         // Track this listing ID
-        if (result.data.bizBuySellId) {
+        if (result.data?.bizBuySellId) {
           this.seenListingIds.add(result.data.bizBuySellId);
         }
       } else {
