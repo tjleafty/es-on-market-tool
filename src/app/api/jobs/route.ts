@@ -206,7 +206,7 @@ async function getJobsSummary() {
       jobQueue.getQueueStats(),
     ]);
 
-    const statusSummary = statusCounts.reduce((acc, item) => {
+    const statusSummary = statusCounts.reduce((acc: Record<string, number>, item: any) => {
       acc[item.status.toLowerCase()] = item._count.id;
       return acc;
     }, {} as Record<string, number>);

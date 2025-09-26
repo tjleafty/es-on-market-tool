@@ -196,7 +196,7 @@ export async function PATCH(request: NextRequest) {
 
       case 'pause':
         // Only pending jobs can be paused
-        const pendingJobs = jobs.filter(job => job.status === 'PENDING');
+        const pendingJobs = jobs.filter((job: any) => job.status === 'PENDING');
         if (pendingJobs.length === 0) {
           return NextResponse.json({
             success: false,
