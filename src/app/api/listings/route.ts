@@ -128,11 +128,11 @@ export async function GET(request: NextRequest) {
       ]);
 
       facets = {
-        industries: industryFacets.map(f => ({
+        industries: industryFacets.map((f: any) => ({
           value: f.industry,
           count: f._count.industry,
         })),
-        states: stateFacets.map(f => ({
+        states: stateFacets.map((f: any) => ({
           value: f.state,
           count: f._count.state,
         })),
