@@ -203,15 +203,15 @@ async function generateSummary(dateFrom: Date, dateTo: Date) {
     }),
   ]);
 
-  const totalJobs = jobStats.reduce((sum, stat) => sum + stat._count.id, 0);
-  const successfulJobs = jobStats.find(s => s.status === 'COMPLETED')?._count.id || 0;
-  const failedJobs = jobStats.find(s => s.status === 'FAILED')?._count.id || 0;
+  const totalJobs = jobStats.reduce((sum: number, stat: any) => sum + stat._count.id, 0);
+  const successfulJobs = jobStats.find((s: any) => s.status === 'COMPLETED')?._count.id || 0;
+  const failedJobs = jobStats.find((s: any) => s.status === 'FAILED')?._count.id || 0;
 
   const averageDurations = jobStats
-    .filter(s => s._avg.duration !== null)
-    .map(s => s._avg.duration || 0);
+    .filter((s: any) => s._avg.duration !== null)
+    .map((s: any) => s._avg.duration || 0);
   const averageJobDuration = averageDurations.length > 0
-    ? averageDurations.reduce((sum, dur) => sum + dur, 0) / averageDurations.length
+    ? averageDurations.reduce((sum: number, dur: number) => sum + dur, 0) / averageDurations.length
     : 0;
 
   return {
