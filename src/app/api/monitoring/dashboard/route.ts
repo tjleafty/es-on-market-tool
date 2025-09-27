@@ -159,12 +159,12 @@ async function generateOverview(todayStart: Date) {
   ]);
 
   const activeJobs = jobCounts
-    .filter(j => ['PROCESSING'].includes(j.status))
-    .reduce((sum, j) => sum + j._count.id, 0);
+    .filter((j: any) => ['PROCESSING'].includes(j.status))
+    .reduce((sum: number, j: any) => sum + j._count.id, 0);
 
   const queuedJobs = jobCounts
-    .filter(j => ['PENDING'].includes(j.status))
-    .reduce((sum, j) => sum + j._count.id, 0);
+    .filter((j: any) => ['PENDING'].includes(j.status))
+    .reduce((sum: number, j: any) => sum + j._count.id, 0);
 
   const todayJobs = jobCounts
     .filter(j => j.status !== 'PENDING' && j.status !== 'PROCESSING');
