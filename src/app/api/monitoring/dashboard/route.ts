@@ -167,15 +167,15 @@ async function generateOverview(todayStart: Date) {
     .reduce((sum: number, j: any) => sum + j._count.id, 0);
 
   const todayJobs = jobCounts
-    .filter(j => j.status !== 'PENDING' && j.status !== 'PROCESSING');
+    .filter((j: any) => j.status !== 'PENDING' && j.status !== 'PROCESSING');
 
   const completedJobsToday = todayJobs
-    .filter(j => j.status === 'COMPLETED')
-    .reduce((sum, j) => sum + j._count.id, 0);
+    .filter((j: any) => j.status === 'COMPLETED')
+    .reduce((sum: number, j: any) => sum + j._count.id, 0);
 
   const failedJobsToday = todayJobs
-    .filter(j => j.status === 'FAILED')
-    .reduce((sum, j) => sum + j._count.id, 0);
+    .filter((j: any) => j.status === 'FAILED')
+    .reduce((sum: number, j: any) => sum + j._count.id, 0);
 
   // Determine system status based on metrics
   const systemStatus: 'healthy' | 'degraded' | 'unhealthy' = failedJobsToday > completedJobsToday ? 'degraded' :
