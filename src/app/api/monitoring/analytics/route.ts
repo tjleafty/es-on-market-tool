@@ -297,8 +297,8 @@ async function generateBreakdowns(dateFrom: Date, dateTo: Date, query: any) {
     },
   });
 
-  const totalJobsForStatus = jobsByStatus.reduce((sum, stat) => sum + stat._count.id, 0);
-  const statusBreakdown: StatusBreakdown[] = jobsByStatus.map(stat => ({
+  const totalJobsForStatus = jobsByStatus.reduce((sum: number, stat: any) => sum + stat._count.id, 0);
+  const statusBreakdown: StatusBreakdown[] = jobsByStatus.map((stat: any) => ({
     status: stat.status,
     count: stat._count.id,
     percentage: Math.round((stat._count.id / totalJobsForStatus) * 100),
