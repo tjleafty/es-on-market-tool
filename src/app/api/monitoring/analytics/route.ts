@@ -361,8 +361,8 @@ async function generateBreakdowns(dateFrom: Date, dateTo: Date, query: any) {
     },
   });
 
-  const totalErrors = errorStats.reduce((sum, stat) => sum + stat._count.id, 0);
-  const errorBreakdown: ErrorBreakdown[] = errorStats.map(stat => ({
+  const totalErrors = errorStats.reduce((sum: number, stat: any) => sum + stat._count.id, 0);
+  const errorBreakdown: ErrorBreakdown[] = errorStats.map((stat: any) => ({
     errorType: stat.error || 'Unknown Error',
     count: stat._count.id,
     percentage: Math.round((stat._count.id / totalErrors) * 100),
